@@ -283,8 +283,7 @@ DEif0(de1, de2, de3) =>
 prints(
 "DEif0(", de1, ",", de2, ",", de3, ")")
 //
-|
-DEfix
+|DEfix
 (f00
 ,x01, st1, dea, sta) =>
 prints("DEfix(",

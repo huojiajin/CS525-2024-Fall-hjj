@@ -192,7 +192,7 @@ def assign02_transpile(tm0):
         condition = assign02_transpile(tm0.arg1)
         then_term = assign02_transpile(tm0.arg2)
         else_term = assign02_transpile(tm0.arg3)
-        return TM1app(TM1app(tm0.arg1, tm0.arg2), tm0.arg3)
+        return TM1app(TM1app(condition, then_term), else_term)
     if tm0.ctag == TM0int:
         # λf.λx. f^n(x)
         f = TM1var("f")
