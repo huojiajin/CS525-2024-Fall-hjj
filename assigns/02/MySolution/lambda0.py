@@ -228,6 +228,7 @@ def assign02_transpile(tm0):
             true_expr = TM1lam("x", TM1lam("y", TM1var("x")))
             return TM1lam("m", TM1lam("n", TM1app(TM1app(m, TM1lam("x", false_expr)), TM1app(n, true_expr))))
         #   TODO other operations? How to implement them?
+        #   use fixpoint achieve other operations
     else:
         raise TypeError("Unsupported term type")
 ############################################################

@@ -206,6 +206,8 @@ DE0psnd = 12
 DE0cast = 13  # for type casting
 #
 DE0anno = 14  # for type annotation
+#
+DE0info = 15  # for type annotation
 
 
 #
@@ -221,6 +223,7 @@ class dexp_cst(dexp):
     def __init__(self, arg1):
         self.arg1 = arg1
         self.ctag = DE0cst
+        self.sypt = None
 
     def __str__(self):
         return ("DEcst(" + self.arg1 + ")")
@@ -347,6 +350,19 @@ class dexp_anno(dexp):
 
 # end-of-class(dexp_anno(dexp))
 ############################################################
+
+class dexp_info(dexp):
+    def __init__(self, expr, styp):
+        self.expr = expr
+        self.styp = styp
+        self.ctag = DE0info
+
+    def __str__(self):
+        return f"DEinfo({self.expr}, {self.styp})"
+
+
+# end-of-class(dexp_anno(dexp))
+############################################################
 #
 def DE1cst(c00):
     return dexp_cst(c00)
@@ -398,8 +414,6 @@ def dexp_tpcheck(expr):
 
 
 def dexp_tpcheck_env(expr, env):
-    # TODO Problem! How to check the DE0cst, DE0fix, DE0if0, DE0cast, DE0anno
-
     # if expr.ctag == DE0cst:
     #     if expr.arg1 == "int":
     #         return dexp_anno(expr, ST_bas("int"))
@@ -407,17 +421,21 @@ def dexp_tpcheck_env(expr, env):
     #         return dexp_anno(expr, ST_bas("bool"))
     #     else:
     #         raise TypeError("Unsupported constant type")
-
+    print(expr)
+    # ? If the env is empty as initial, how to find it? Save the ST_none() in it?
     if expr.ctag == DE0var:
         if expr.arg1 in env:
-            return dexp_anno(expr, env[expr.arg1])
+            return dexp_info(expr, env[expr.arg1])
         else:
-            return dexp_anno(expr, ST_none())
+            return dexp_info(expr, ST_none())
 
     elif expr.ctag == DE0lam:
         env[expr.arg1] = expr.arg2.styp
+        # TODO
+        # After calculating we need remove the term from env
+        # After type checking we need to set the type into styp
         body_checked = dexp_tpcheck_env(expr.arg3, env)
-        return dexp_anno(expr, ST_fun(env[expr.arg1], body_checked.styp))
+        return dexp_info(expr, ST_fun(env[expr.arg1], body_checked.styp))
 
     elif expr.ctag == DE0app:
         func_checked = dexp_tpcheck_env(expr.arg1, env)
@@ -433,17 +451,17 @@ def dexp_tpcheck_env(expr, env):
 
         # Check if the argument type matches
         if styp_subeq(arg_checked.styp, expected_arg_type):
-            return dexp_anno(dexp_app(func_checked, arg_checked), return_type)
+            return dexp_info(dexp_app(func_checked, arg_checked), return_type)
         else:
             # Cast arg_checked to the expected type and annotate the result
             casted_arg = dexp_cast(arg_checked, expected_arg_type)
-            return dexp_anno(dexp_app(func_checked, casted_arg), return_type)
+            return dexp_info(dexp_app(func_checked, casted_arg), return_type)
 
     elif expr.ctag == DE0int:
-        return dexp_anno(expr, ST_bas("int"))
+        return dexp_info(expr, ST_bas("int"))
 
     elif expr.ctag == DE0btf:
-        return dexp_anno(expr, ST_bas("bool"))
+        return dexp_info(expr, ST_bas("bool"))
 
     elif expr.ctag == DE0opr:
         op_type = None
@@ -476,31 +494,69 @@ def dexp_tpcheck_env(expr, env):
 
         return dexp_anno(expr, op_type.return_type)
 
-
     elif expr.ctag == DE0nil0:
-        return dexp_anno(expr, ST_bas("unit"))
+        return dexp_info(expr, ST_bas("unit"))
 
     elif expr.ctag == DE0cons:
         head_checked = dexp_tpcheck_env(expr.arg1, env)
         tail_checked = dexp_tpcheck_env(expr.arg2, env)
-        return dexp_anno(expr, ST_tup(head_checked.styp, tail_checked.styp))
+        return dexp_info(expr, ST_tup(head_checked.styp, tail_checked.styp))
 
     elif expr.ctag == DE0pfst:
         pair_checked = dexp_tpcheck_env(expr.arg1, env)
         if pair_checked.styp.ctag == ST0tup:
-            return dexp_anno(expr, pair_checked.styp.left)
+            return dexp_info(expr, pair_checked.styp.left)
         else:
             return dexp_cast(pair_checked, ST_pfst(pair_checked.styp))
 
     elif expr.ctag == DE0psnd:
         pair_checked = dexp_tpcheck_env(expr.arg1, env)
         if pair_checked.styp.ctag == ST0tup:
-            return dexp_anno(expr, pair_checked.styp.right)
+            return dexp_info(expr, pair_checked.styp.right)
         else:
             return dexp_cast(pair_checked, ST_psnd(pair_checked.styp))
+    elif expr.ctag == DE0info:
+        dexp_lam()
     else:
+        print(expr.ctag)
         raise TypeError("Unsupported expression type")
+
 
 ############################################################
 # end of [HWXI/CS525-2024-Fall/assigns/04/lambda2.py]
 ############################################################
+
+if __name__ == "__main__":
+    # # Test 1: Basic type inference
+    # expr1 = DE1int(42)
+    # print(dexp_tpcheck(expr1))  # Expected: DEinfo(DEint(42), STbas(int))
+    #
+    # expr2 = DE1btf(True)
+    # print(dexp_tpcheck(expr2))  # Expected: DEinfo(DEbtf(True), STbas(bool))
+    #
+    # # Test 2: Variable type inference
+    # env = {"x": ST_bas("int")}
+    # expr3 = DE1var("x")
+    # print(dexp_tpcheck_env(expr3, env))  # Expected: DEinfo(DEvar(x), STbas(int))
+    #
+    # expr4 = DE1var("y")  # Undefined variable
+    # print(dexp_tpcheck_env(expr4, env))  # Expected: DEinfo(DEvar(y), STnone)
+    #
+    #Test 3: Function application
+    K0 = dexp_lam("x", dexp_lam("y", dexp_var("x")))
+    K0_checked = dexp_tpcheck(K0)
+    print(K0_checked)
+
+    # # Test 4: Operator type inference
+    # expr6 = DE1opr("+", [DE1int(5), DE1int(3)])
+    # print(dexp_tpcheck(expr6))  # Expected: DEinfo(DEopr(...), STbas(int))
+    #
+    # expr7 = DE1opr("<", [DE1int(5), DE1int(3)])
+    # print(dexp_tpcheck(expr7))  # Expected: DEinfo(DEopr(...), STbas(bool))
+    #
+    # # Test 5: Nested expressions
+    # expr8 = DE1app(
+    #     DE1lam("x", DE1opr("+", [DE1var("x"), DE1int(10)])),
+    #     DE1int(5)
+    # )
+    # print(dexp_tpcheck(expr8))  # Expected: DEinfo(..., STbas(int))
